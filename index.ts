@@ -1,78 +1,95 @@
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { drizzle as drizzleD1 } from "drizzle-orm/d1";
-import postgres from "postgres";
-import * as postgresSchema from "./postgres-schema";
-import * as sqliteSchema from "./sqlite-schema";
+/** Cloudflare Worker entry point for the vinext-starter template. */
+import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
+import handler from "vinext/server/app-router-entry";
+import { setRuntimeEnv } from "../db";
 
-type RuntimeEnv = Record<string, unknown> & { DB?: D1Database };
-type SqlQuery = { sql: string; params: unknown[] };
-type QueryBuilder = PromiseLike<unknown> & { toSQL(): SqlQuery };
-type PostgresDb = ReturnType<typeof drizzlePostgres> & {
-  batch(writes: QueryBuilder[]): Promise<unknown[]>;
-};
-type LegacyDb = ReturnType<typeof drizzleD1>;
-
-let requestEnv: RuntimeEnv = {};
-let postgresDb: PostgresDb | null = null;
-let postgresClient: ReturnType<typeof postgres> | null = null;
-let postgresUrl = "";
-
-export function setRuntimeEnv(value: RuntimeEnv) {
-  requestEnv = value;
-}
-
-function readEnv(name: string) {
-  const fromRequest = requestEnv[name];
-  if (typeof fromRequest === "string" && fromRequest) return fromRequest;
-  if (fromRequest) return fromRequest;
-  const runtimeProcess = typeof globalThis === "object" ? Reflect.get(globalThis, "process") : undefined;
-  const runtimeEnv = runtimeProcess && typeof runtimeProcess === "object"
-    ? Reflect.get(runtimeProcess, "env")
-    : undefined;
-  if (runtimeEnv && typeof runtimeEnv === "object") {
-    const value = Reflect.get(runtimeEnv, name);
-    if (value) return value;
-  }
-  return undefined;
-}
-
-function getPostgresDb(url: string) {
-  if (!postgresDb || postgresUrl !== url) {
-    const client = postgres(url, {
-      // Supabase transaction poolers do not support prepared statements.
-      prepare: false,
-      max: 5,
-    });
-    const db = drizzlePostgres(client, { schema: postgresSchema }) as PostgresDb;
-    // D1 exposes batch(); keep the call sites portable during the cutover,
-    // while translating those Drizzle builders into one PostgreSQL transaction.
-    db.batch = async (writes: QueryBuilder[]) => {
-      if (!postgresClient) throw new Error("PostgreSQL 连接尚未初始化。");
-      const queries = writes.map((write) => write.toSQL());
-      return postgresClient.begin(async (transaction) => {
-        const results: unknown[] = [];
-        for (const query of queries) {
-          results.push(await transaction.unsafe(query.sql, query.params));
-        }
-        return results;
-      });
+interface Env {
+  ASSETS: Fetcher;
+  DB: D1Database;
+  IMAGES: {
+    input(stream: ReadableStream): {
+      transform(options: Record<string, unknown>): {
+        output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
+      };
     };
-    postgresClient = client;
-    postgresDb = db;
-    postgresUrl = url;
-  }
-  return postgresDb;
+  };
 }
 
-export function getDb(): PostgresDb | LegacyDb {
-  const databaseUrl = readEnv("DATABASE_URL");
-  if (typeof databaseUrl === "string" && databaseUrl) return getPostgresDb(databaseUrl);
-
-  const d1 = readEnv("DB") as D1Database | undefined;
-  if (!d1) {
-    throw new Error(
-      "数据库连接不可用。Node/Vinext 运行需要 DATABASE_URL；Cloudflare 兼容预览需要 DB 绑定。"
-    );
-  }
-  return drizzleD1(d1, { schema: sqliteSchema });
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
 }
+
+const MAX_API_BODY_BYTES = 256 * 1024;
+
+function securityHeaders(response: Response, request: Request, url: URL) {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  if (url.pathname.startsWith("/api/")) headers.set("Cache-Control", "no-store");
+  if (url.protocol === "https:") headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function oversizedApiRequest(request: Request, url: URL) {
+  if (!url.pathname.startsWith("/api/") || !["POST", "PUT", "PATCH"].includes(request.method)) return null;
+  const contentLength = request.headers.get("content-length");
+  if (!contentLength) return null;
+  const bodyBytes = Number(contentLength);
+  if (!Number.isFinite(bodyBytes) || bodyBytes <= MAX_API_BODY_BYTES) return null;
+  return Response.json({ error: "请求内容过大。" }, {
+    status: 413,
+    headers: { "Cache-Control": "no-store", "Retry-After": "0" },
+  });
+}
+
+function crossOriginMutation(request: Request, url: URL) {
+  if (!url.pathname.startsWith("/api/") || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return null;
+  const origin = request.headers.get("origin")?.trim();
+  if (!origin) return null;
+  try {
+    if (new URL(origin).origin === url.origin) return null;
+  } catch {
+    // Treat a malformed Origin header as untrusted.
+  }
+  return Response.json({ error: "不允许跨站提交。" }, {
+    status: 403,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
+// Image security config. SVG sources with .svg extension auto-skip the
+// optimization endpoint on the client side (served directly, no proxy).
+// To route SVGs through the optimizer (with security headers), set
+// dangerouslyAllowSVG: true in next.config.js and uncomment below:
+// const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
+
+const worker = {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    setRuntimeEnv(env);
+    const url = new URL(request.url);
+
+    if (url.pathname === "/_vinext/image") {
+      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
+      const response = await handleImageOptimization(request, {
+        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
+        transformImage: async (body, { width, format, quality }) => {
+          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
+          return result.response();
+        },
+      }, allowedWidths);
+      return securityHeaders(response, request, url);
+    }
+
+    const crossOriginResponse = crossOriginMutation(request, url);
+    if (crossOriginResponse) return securityHeaders(crossOriginResponse, request, url);
+    const oversizedResponse = oversizedApiRequest(request, url);
+    if (oversizedResponse) return securityHeaders(oversizedResponse, request, url);
+    return securityHeaders(await handler.fetch(request, env, ctx), request, url);
+  },
+};
+
+export default worker;

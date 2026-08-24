@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ecommerce-project-progress
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
