@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>电商项目进度助手</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f4f7fb;
+      color: #172033;
+    }
+
+    header {
+      padding: 28px max(24px, calc((100% - 1120px) / 2));
+      background: #12213b;
+      color: white;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    header h1 { margin-bottom: 8px; font-size: 28px; }
+    header p { margin-bottom: 0; color: #b9c7df; }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 28px auto 48px;
+    }
+
+    .search-box, .panel, .project-card, .summary-card {
+      background: white;
+      border: 1px solid #e3e8f1;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(20, 38, 70, 0.05);
+    }
+
+    .search-box, .panel { padding: 20px; }
+    .search-row { display: flex; gap: 12px; }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 13px 14px;
+      border: 1px solid #cfd8e6;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 20px;
+      background: #2463eb;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #174fc6; }
+
+    .summary-grid, .project-grid {
+      display: grid;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .summary-grid { grid-template-columns: repeat(4, 1fr); }
+    .project-grid { grid-template-columns: repeat(3, 1fr); }
+
+    .summary-card, .project-card { padding: 18px; }
+    .summary-card span, .muted { color: #67748a; }
+    .summary-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 30px;
+    }
+
+    .project-card {
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .project-card:hover {
+      transform: translateY(-3px);
+      border-color: #2463eb;
+    }
+
+    .project-card h3 { margin-bottom: 12px; }
+    .project-card p { margin: 8px 0 0; color: #536177; }
+
+    .status {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .on_track { background: #dcfce7; color: #16733b; }
+    .at_risk { background: #fef3c7; color: #9a6500; }
+    .delayed { background: #fee2e2; color: #ba2525; }
+    .unknown { background: #e5e7eb; color: #4b5563; }
+
+    .panel { margin-top: 20px; }
+    .answer { line-height: 1.8; }
+    .answer ul { padding-left: 20px; }
+
+    @media (max-width: 760px) {
+      .summary-grid, .project-grid { grid-template-columns: 1fr; }
+      .search-row { flex-direction: column; }
+      button { min-height: 46px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>电商项目进度助手</h1>
+    <p>查询项目状态、风险、负责人和资料来源</p>
+  </header>
+
+  <main>
+    <section class="search-box" aria-label="项目查询">
+      <div class="search-row">
+        <input id="questionInput" placeholder="例如：天猫双 11 项目现在进展到哪一步？" />
+        <button id="searchButton" type="button">查询</button>
+      </div>
+    </section>
+
+    <section id="summary" class="summary-grid" aria-label="项目状态总览"></section>
+
+    <section>
+      <h2>项目列表</h2>
+      <div id="projectList" class="project-grid"></div>
+    </section>
+
+    <section id="detailPanel" class="panel" aria-live="polite">
+      <h2>项目详情</h2>
+      <p class="muted">点击上方项目卡片，或通过提问查询项目。</p>
+    </section>
+  </main>
+
+  <script>
+    const projects = [
+      {
+        id: "project-001",
+        name: "独立站商品详情页重构",
+        keywords: ["独立站", "商品详情页", "详情页重构"],
+        status: "at_risk",
+        stage: "支付与物流接口联调",
+        plannedEndDate: "2026-08-22",
+        progress: "商品详情页、购物车和订单页已完成；支付接口联调约完成 80%。",
+        blockers: ["客户尚未提供正式的物流接口字段说明。"],
+        owner: "张晨",
+        lastUpdated: "2026-08-18",
+        sources: ["第 32 周项目周报", "8 月 18 日项目例会纪要"]
+      },
+      {
+        id: "project-002",
+        name: "天猫旗舰店双 11 预热活动页",
+        keywords: ["天猫", "双11", "双 11", "预热活动页"],
+        status: "on_track",
+        stage: "页面开发与商品数据校验",
+        plannedEndDate: "2026-08-28",
+        progress: "活动首页和商品会场页面已完成；商品价格、库存和优惠券规则正在核对。",
+        blockers: ["部分商品优惠规则仍待运营确认。"],
+        owner: "李敏",
+        lastUpdated: "2026-08-19",
+        sources: ["活动排期表", "运营需求文档", "商品配置清单"]
+      },
+      {
+        id: "project-003",
+        name: "小程序会员积分系统升级",
+        keywords: ["小程序", "会员积分", "积分系统"],
+        status: "delayed",
+        stage: "用户验收测试（UAT）",
+        plannedEndDate: "2026-08-15",
+        progress: "开发已完成，但测试发现积分过期规则计算异常，暂未发布。",
+        blockers: ["第三方短信服务测试环境不稳定。", "积分过期规则计算异常。"],
+        owner: "王磊",
+        lastUpdated: "2026-08-16",
+        sources: ["UAT 缺陷清单", "测试日报", "项目周报"]
+      }
+    ];
+
+    const statusText = {
+      on_track: "正常",
+      at_risk: "有风险",
+      delayed: "已延期",
+      unknown: "信息不足"
+    };
+
+    const summaryElement = document.querySelector("#summary");
+    const projectListElement = document.querySelector("#projectList");
+    const detailPanelElement = document.querySelector("#detailPanel");
+    const questionInputElement = document.querySelector("#questionInput");
+
+    function renderSummary() {
+      const countByStatus = (status) => projects.filter((project) => project.status === status).length;
+
+      summaryElement.innerHTML = `
+        <div class="summary-card"><span>全部项目</span><strong>${projects.length}</strong></div>
+        <div class="summary-card"><span>正常进行</span><strong>${countByStatus("on_track")}</strong></div>
+        <div class="summary-card"><span>存在风险</span><strong>${countByStatus("at_risk")}</strong></div>
+        <div class="summary-card"><span>已经延期</span><strong>${countByStatus("delayed")}</strong></div>
+      `;
+    }
+
+    function renderProjects() {
+      projectListElement.innerHTML = projects.map((project) => `
+        <article class="project-card" data-project-id="${project.id}" tabindex="0">
+          <h3>${project.name}</h3>
+          <span class="status ${project.status}">${statusText[project.status]}</span>
+          <p>当前阶段：${project.stage}</p>
+          <p>负责人：${project.owner}</p>
+          <p>更新于：${project.lastUpdated}</p>
+        </article>
+      `).join("");
+
+      projectListElement.querySelectorAll(".project-card").forEach((card) => {
+        card.addEventListener("click", () => showProject(card.dataset.projectId));
+        card.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            showProject(card.dataset.projectId);
+          }
+        });
+      });
+    }
+
+    function showProject(id) {
+      const project = projects.find((item) => item.id === id);
+      if (!project) return;
+
+      detailPanelElement.innerHTML = `
+        <h2>${project.name}</h2>
+        <p><span class="status ${project.status}">${statusText[project.status]}</span></p>
+        <div class="answer">
+          <p><strong>当前阶段：</strong>${project.stage}</p>
+          <p><strong>当前进展：</strong>${project.progress}</p>
+          <p><strong>计划完成日期：</strong>${project.plannedEndDate}</p>
+          <p><strong>负责人：</strong>${project.owner}</p>
+          <p><strong>最后更新时间：</strong>${project.lastUpdated}</p>
+          <p><strong>阻塞项：</strong></p>
+          <ul>${project.blockers.map((item) => `<li>${item}</li>`).join("")}</ul>
+          <p><strong>资料来源：</strong>${project.sources.join("、")}</p>
+        </div>
+      `;
+    }
+
+    function showPortfolioOverview() {
+      const priorityProjects = projects
+        .filter((project) => ["delayed", "at_risk"].includes(project.status))
+        .map((project) => `<li><strong>${project.name}</strong>：${statusText[project.status]}，${project.blockers[0]}</li>`)
+        .join("");
+
+      detailPanelElement.innerHTML = `
+        <h2>项目总览</h2>
+        <div class="answer">
+          <p>当前共有 ${projects.length} 个项目：</p>
+          <ul>
+            <li>正常：${projects.filter((project) => project.status === "on_track").length} 个</li>
+            <li>有风险：${projects.filter((project) => project.status === "at_risk").length} 个</li>
+            <li>已延期：${projects.filter((project) => project.status === "delayed").length} 个</li>
+          </ul>
+          <p><strong>优先关注：</strong></p>
+          <ul>${priorityProjects}</ul>
+        </div>
+      `;
+    }
+
+    function answerQuestion() {
+      const question = questionInputElement.value.trim();
+
+      if (!question) {
+        detailPanelElement.innerHTML = `
+          <h2>请先输入问题</h2>
+          <p class="muted">例如：小程序会员积分系统现在进展到哪一步？</p>
+        `;
+        return;
+      }
+
+      if (/全部|所有|整体|总览/.test(question)) {
+        showPortfolioOverview();
+        return;
+      }
+
+      const project = projects.find((item) => item.keywords.some((keyword) => question.includes(keyword)));
+
+      if (!project) {
+        detailPanelElement.innerHTML = `
+          <h2>没有找到对应项目数据</h2>
+          <p class="muted">请检查项目名称，或上传该项目的排期表、周报、会议纪要等资料。</p>
+        `;
+        return;
+      }
+
+      showProject(project.id);
+    }
+
+    document.querySelector("#searchButton").addEventListener("click", answerQuestion);
+    questionInputElement.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") answerQuestion();
+    });
+
+    renderSummary();
+    renderProjects();
+  </script>
+</body>
+</html>

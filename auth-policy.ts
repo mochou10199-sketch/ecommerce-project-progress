@@ -1,0 +1,4 @@
+export const PASSWORD_MIN_LENGTH = 6;
+export const PASSWORD_MAX_LENGTH = 20;
+
+export const PASSWORD_LENGTH_MESSAGE = `密码需要为 ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} 个字符。`;
