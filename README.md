@@ -6,7 +6,7 @@
 
 当前活动运行路径已切换为 **Node/Vinext + PostgreSQL**，目标数据库为全新的 Supabase PostgreSQL。Supabase 空项目和 10 张核心表已初始化；原 Cloudflare Worker/D1 代码和 Sites 版本暂时保留为旧版本参考和可选回滚资产，但不再是活动构建入口；本次不迁移已有 D1 数据，线上新平台仍需完成 Node 部署和验收后才能切换。
 
-本地 PostgreSQL 演练库已经完成：10 张核心表、`team_roles`、内置角色补齐和 Node 运行时验收。生产环境将初始化空库，不导入已有 D1 数据。详细步骤见 `docs/vibe-coding/20-数据库迁移执行.md`。
+本地 PostgreSQL 演练库已经完成：10 张核心表、`team_roles`、内置角色补齐和 Node 运行时验收。生产环境将初始化空库，不导入已有 D1 数据；Vercel/Nitro 构建入口已经通过本地验证。详细步骤见 `docs/vibe-coding/20-数据库迁移执行.md`。
 
 ## 当前已实现
 
@@ -38,7 +38,7 @@
 ## 暂未实现
 
 - 真实文件上传、文档解析和资料索引。
-- Supabase 生产项目创建、远端 PostgreSQL 导入、Node 主机部署、DNS/域名切换和旧 Cloudflare 站点下线。
+- 远端 Vercel Node 部署、`DATABASE_URL` 配置、DNS/域名切换和旧 Cloudflare 站点下线。
 
 ## 本地运行
 
