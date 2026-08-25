@@ -37,7 +37,13 @@ export function AuthPanel({ onAuthenticated }: AuthPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamCode, teamName, username, password }),
       });
-      const payload = await response.json() as { user?: ClientAuthUser; teamCode?: string; message?: string; error?: string };
+      const raw = await response.text();
+      let payload: { user?: ClientAuthUser; teamCode?: string; message?: string; error?: string } = {};
+      try {
+        payload = raw ? JSON.parse(raw) as typeof payload : {};
+      } catch {
+        throw new Error(`登录服务暂时不可用（HTTP ${response.status}）。请稍后重试。`);
+      }
       if (!response.ok || !payload.user) throw new Error(payload.error || "暂时无法完成操作。");
       const notice = mode === "register" && payload.teamCode
         ? `团队创建成功。请保存团队编号：${payload.teamCode}`
