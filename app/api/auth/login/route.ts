@@ -25,60 +25,65 @@ export async function POST(request: Request) {
   const loginLimit = checkRateLimit(request, "auth.login", `${teamCode}:${username}`, 10, 5 * 60 * 1000);
   if (!loginLimit.allowed) return tooManyRequests(loginLimit, "登录尝试过于频繁，请稍后再试。");
 
-  const db = getDb();
-  const [team] = await db.select().from(teams)
-    .where(and(eq(teams.code, teamCode), eq(teams.status, "active")))
-    .limit(1);
-  if (!team) return invalidCredentials();
+  try {
+    const db = getDb();
+    const [team] = await db.select().from(teams)
+      .where(and(eq(teams.code, teamCode), eq(teams.status, "active")))
+      .limit(1);
+    if (!team) return invalidCredentials();
 
-  const [user] = await db.select().from(users)
-    .where(and(eq(users.teamId, team.id), eq(users.username, username), eq(users.status, "active")))
-    .limit(1);
-  const lockedUntil = user?.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
-  if (!user || (lockedUntil && lockedUntil > Date.now())) return invalidCredentials();
+    const [user] = await db.select().from(users)
+      .where(and(eq(users.teamId, team.id), eq(users.username, username), eq(users.status, "active")))
+      .limit(1);
+    const lockedUntil = user?.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
+    if (!user || (lockedUntil && lockedUntil > Date.now())) return invalidCredentials();
 
-  if (!(await verifyPassword(password, user.passwordSalt, user.passwordHash))) {
-    const failedLoginCount = user.failedLoginCount + 1;
-    const nextLockedUntil = failedLoginCount >= MAX_FAILED_LOGINS
-      ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
-      : null;
+    if (!(await verifyPassword(password, user.passwordSalt, user.passwordHash))) {
+      const failedLoginCount = user.failedLoginCount + 1;
+      const nextLockedUntil = failedLoginCount >= MAX_FAILED_LOGINS
+        ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString()
+        : null;
+      const now = new Date().toISOString();
+      await db.update(users).set({ failedLoginCount, lockedUntil: nextLockedUntil, updatedAt: now }).where(eq(users.id, user.id));
+      await db.insert(auditLogs).values({
+        id: crypto.randomUUID(),
+        teamId: team.id,
+        userId: user.id,
+        action: "auth.login_failed",
+        resourceType: "session",
+        resourceId: user.id,
+        result: nextLockedUntil ? "locked" : "failure",
+        createdAt: now,
+      });
+      return invalidCredentials();
+    }
+
     const now = new Date().toISOString();
-    await db.update(users).set({ failedLoginCount, lockedUntil: nextLockedUntil, updatedAt: now }).where(eq(users.id, user.id));
+    await db.update(users).set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: now, updatedAt: now }).where(eq(users.id, user.id));
     await db.insert(auditLogs).values({
       id: crypto.randomUUID(),
       teamId: team.id,
       userId: user.id,
-      action: "auth.login_failed",
+      action: "auth.login",
       resourceType: "session",
       resourceId: user.id,
-      result: nextLockedUntil ? "locked" : "failure",
+      result: "success",
       createdAt: now,
     });
-    return invalidCredentials();
+
+    const authUser = await buildAuthUser({
+      id: user.id,
+      teamId: user.teamId,
+      teamCode: team.code,
+      teamName: team.name,
+      username: user.username,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+    });
+    const session = await createSession(request, authUser);
+    return Response.json({ user: authUser }, { headers: { "Set-Cookie": session.cookie } });
+  } catch (error) {
+    console.error("login service unavailable", error instanceof Error ? error.message : error);
+    return Response.json({ error: "数据库暂时不可用，请先检查部署环境中的 DATABASE_URL。" }, { status: 503 });
   }
-
-  const now = new Date().toISOString();
-  await db.update(users).set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: now, updatedAt: now }).where(eq(users.id, user.id));
-  await db.insert(auditLogs).values({
-    id: crypto.randomUUID(),
-    teamId: team.id,
-    userId: user.id,
-    action: "auth.login",
-    resourceType: "session",
-    resourceId: user.id,
-    result: "success",
-    createdAt: now,
-  });
-
-  const authUser = await buildAuthUser({
-    id: user.id,
-    teamId: team.id,
-    teamCode: team.code,
-    teamName: team.name,
-    username: user.username,
-    role: user.role,
-    mustChangePassword: user.mustChangePassword,
-  });
-  const session = await createSession(request, authUser);
-  return Response.json({ user: authUser }, { headers: { "Set-Cookie": session.cookie } });
 }
