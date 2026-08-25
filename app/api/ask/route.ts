@@ -1,6 +1,8 @@
+import { and, eq } from "drizzle-orm";
+import { documentChunks, getDb, projectDocuments } from "../../../db";
 import { isResponse, requirePermission } from "../../lib/permissions";
 import { listProjectRecords } from "../../lib/project-record";
-import { resolveProjectQuestion } from "../../lib/project-query";
+import { resolveProjectQuestion, searchDocumentRows } from "../../lib/project-query";
 import { checkRateLimit, tooManyRequests } from "../../lib/rate-limit";
 import type { Project } from "../../lib/project-data";
 
@@ -36,7 +38,23 @@ export async function POST(request: Request) {
     return Response.json({ error: "请输入不超过 500 个字符的项目问题。" }, { status: 400 });
   }
 
-  const result = resolveProjectQuestion(question, (await listProjectRecords(user.teamId)).map(toProject));
+  const documentRows = await getDb().select({
+    projectId: documentChunks.projectId,
+    documentId: documentChunks.documentId,
+    title: projectDocuments.originalName,
+    content: documentChunks.content,
+    searchText: documentChunks.searchText,
+  }).from(documentChunks)
+    .innerJoin(projectDocuments, and(
+      eq(documentChunks.documentId, projectDocuments.id),
+      eq(projectDocuments.teamId, user.teamId),
+    ))
+    .where(eq(documentChunks.teamId, user.teamId));
+  const result = resolveProjectQuestion(
+    question,
+    (await listProjectRecords(user.teamId)).map(toProject),
+    searchDocumentRows(question, documentRows),
+  );
   return Response.json({
     result,
     assistantText: result.summary,
