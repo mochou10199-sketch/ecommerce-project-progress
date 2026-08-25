@@ -1,5 +1,6 @@
 import { statusLabel, type Project } from "../lib/project-data";
 import { projectPriorityOptions } from "../lib/project-options";
+import { ProjectDocuments } from "./ProjectDocuments";
 
 interface ProjectDetailProps {
   project: Project;
@@ -51,6 +52,7 @@ export function ProjectDetail({ project, assistantText, mode, onEdit, onArchive 
       <div className="chip-row">
         {project.sources.map((source) => <span className="chip" key={source}>{source}</span>)}
       </div>
+      <ProjectDocuments projectId={project.id} canUpload={Boolean(onEdit)} />
     </>
   );
 }
