@@ -8,34 +8,21 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "build:vercel": "NITRO_PRESET=vercel vite build",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
-    "production:preflight": "node scripts/production-preflight.mjs",
-    "production:smoke": "node scripts/production-smoke.mjs",
-    "production:backup:check": "node scripts/production-backup-check.mjs",
-    "production:roles:check": "node scripts/production-role-schema-check.mjs",
-    "db:migrations:check": "npm run build && node scripts/verify-migrations.mjs",
-    "db:postgres:generate": "drizzle-kit generate --config drizzle-postgres.config.ts",
-    "db:postgres:import": "node scripts/migrate-sqlite-to-postgres.mjs",
-    "db:postgres:verify": "node scripts/verify-postgres-schema.mjs",
-    "postgres:acceptance": "npm run build && node scripts/postgres-local-acceptance.mjs",
-    "local:acceptance": "npm run build && node scripts/local-acceptance.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "local:acceptance": "npm run build && node scripts/local-sqlite-acceptance.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .vercel --ignore-pattern .output",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "nitro": "^3.0.260610-beta",
-    "postgres": "^3.4.7",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.37.1",
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.2.6",
-    "@openai/sites-vite-plugin": "0.1.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -53,8 +40,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
     "vinext": "1.0.0-beta.2",
-    "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "vite": "8.0.13"
   },
   "type": "module"
 }

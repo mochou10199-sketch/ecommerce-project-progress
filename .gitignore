@@ -32,6 +32,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local database and uploaded project materials
+/data/
+
 # vercel
 .vercel
 

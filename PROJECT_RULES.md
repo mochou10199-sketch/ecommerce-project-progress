@@ -8,8 +8,8 @@
 
 ## 技术约束
 
-- 活动运行时使用 TypeScript、React 19、Vinext、Node.js 和 Drizzle ORM；目标数据层为 Supabase PostgreSQL。
-- 旧 Cloudflare Worker/D1 和 `.openai/hosting.json` 仅作为迁移窗口回滚资产保留，不得作为新版本活动入口。PostgreSQL 迁移文件在 `drizzle-postgres/`，SQLite/D1 兼容结构在 `db/sqlite-schema.ts`。
+- 活动运行时使用 TypeScript、React 19、Vinext、Node.js 和 Drizzle ORM；活动数据层为运行机器上的 Node 内置 SQLite。
+- 项目只发布源码到 GitHub，不配置 Vercel、Render、Supabase、Cloudflare 或其他线上部署入口。
 - 真实项目资料不得发送给 OpenAI 或其他外部 AI 服务。
 - 所有业务查询和写操作必须从服务端会话取得 `team_id`，不能信任前端传入的租户范围。
 
@@ -20,7 +20,7 @@
 - 所有公司、团队、成员、项目、状态、来源和审计记录必须有明确的团队范围。
 - 成员停用、权限变更、跨租户访问和异常登录必须有测试与审计记录。
 - 未经明确确认，不执行生产部署、数据库迁移、数据删除、公开分享或外部消息发送。
-- 远端 PostgreSQL 导入必须先完成备份、确认目标库为空并显式使用 `--allow-remote`；没有数据库/主机权限时只做本地演练和文档准备。
+- 本地数据库和上传资料默认写入 `data/`，该目录不得提交到 GitHub；备份由使用者在自己的电脑上完成。
 
 ## 开发规则
 
