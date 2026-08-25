@@ -41,7 +41,13 @@ export async function POST(request: Request) {
   const registerLimit = checkRateLimit(request, "auth.register", "team-registration", 5, 10 * 60 * 1000);
   if (!registerLimit.allowed) return tooManyRequests(registerLimit, "注册请求过于频繁，请稍后再试。");
 
-  const db = getDb();
+  let db: ReturnType<typeof getDb>;
+  try {
+    db = getDb();
+  } catch (error) {
+    console.error("registration database unavailable", error instanceof Error ? error.message : error);
+    return jsonError("数据库暂时不可用，请先检查部署环境中的 DATABASE_URL。", 503);
+  }
   const teamCode = createTeamCode();
   const now = new Date().toISOString();
   const organizationId = crypto.randomUUID();
