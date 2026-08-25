@@ -278,6 +278,16 @@ button { cursor: pointer; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { padding: 7px 9px; border-radius: 8px; background: #f1f5fb; color: #42536d; font-size: 12px; }
 .chip.risk { background: #fff5e1; color: #885300; }
+.project-documents { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e1e8f2; }
+.document-help { margin: -3px 0 10px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.document-upload { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.document-upload input[type="file"] { max-width: 100%; padding: 7px; border: 1px solid #c8d5e6; border-radius: 8px; background: #fff; color: var(--muted); font-size: 12px; }
+.document-notice { margin: 9px 0 0; color: #315c9f; font-size: 12px; }
+.document-list { display: grid; gap: 7px; margin-top: 10px; }
+.document-row { padding: 10px 11px; border: 1px solid #e1e8f2; border-radius: 9px; background: #fbfdff; }
+.document-row strong, .document-row span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-row strong { font-size: 12px; }
+.document-row span { margin-top: 3px; color: var(--muted); font-size: 11px; }
 
 .empty-state { display: grid; min-height: 330px; place-content: center; text-align: center; }
 .empty-state h2 { margin-bottom: 8px; }
