@@ -156,3 +156,38 @@ export const incidents = sqliteTable("incidents", {
   teamIndex: index("incidents_team_id_idx").on(table.teamId),
   teamStatusIndex: index("incidents_team_status_idx").on(table.teamId, table.status),
 }));
+
+export const projectDocuments = sqliteTable("project_documents", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull(),
+  teamId: text("team_id").notNull(),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  status: text("status").notNull().default("indexed"),
+  extractedChars: integer("extracted_chars").notNull().default(0),
+  errorMessage: text("error_message"),
+  createdBy: text("created_by"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => ({
+  projectIndex: index("project_documents_project_id_idx").on(table.projectId),
+  teamIndex: index("project_documents_team_id_idx").on(table.teamId),
+}));
+
+export const documentChunks = sqliteTable("document_chunks", {
+  id: text("id").primaryKey(),
+  documentId: text("document_id").notNull(),
+  projectId: text("project_id").notNull(),
+  teamId: text("team_id").notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  searchText: text("search_text").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  documentChunkUnique: uniqueIndex("document_chunks_document_index_unique").on(table.documentId, table.chunkIndex),
+  projectIndex: index("document_chunks_project_id_idx").on(table.projectId),
+  teamIndex: index("document_chunks_team_id_idx").on(table.teamId),
+}));
